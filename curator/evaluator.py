@@ -44,14 +44,25 @@ def parse_classification_json(raw: str) -> dict:
                 code_body = code_body[4:]
             text = code_body.strip()
 
-    idx = text.find("{")
-    if idx == -1:
+    data = None
+    start_pos = 0
+    while True:
+        idx = text.find("{", start_pos)
+        if idx == -1:
+            break
+        try:
+            obj, _ = json.JSONDecoder().raw_decode(text, idx)
+            if isinstance(obj, dict):
+                data = obj
+                break
+            start_pos = idx + 1
+        except json.JSONDecodeError:
+            start_pos = idx + 1
+
+    if not data:
         return fallback
 
     try:
-        data, _ = json.JSONDecoder().raw_decode(text, idx)
-        if not isinstance(data, dict):
-            return fallback
         cat = data.get("category", "other")
         if cat not in VALID_CATEGORIES:
             cat = "other"

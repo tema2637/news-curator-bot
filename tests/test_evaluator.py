@@ -74,5 +74,12 @@ class TestEvaluator(unittest.TestCase):
         self.assertEqual(parsed["category"], "tools")
         self.assertIn('test "quoted" values', parsed["topics"])
 
+    def test_json_with_preamble_containing_curly_braces(self):
+        raw = 'Вот пример {ключ: значение} — теперь результат: {"category": "models", "signal": 0.85, "fact": 0.9, "hype": 0.1, "topics": ["test"]}'
+        parsed = parse_classification_json(raw)
+        self.assertEqual(parsed["category"], "models")
+        self.assertEqual(parsed["signal"], 0.85)
+        self.assertIn("test", parsed["topics"])
+
 if __name__ == "__main__":
     unittest.main()

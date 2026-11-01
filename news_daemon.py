@@ -7,10 +7,17 @@ Post Generator: Llama 70B System 2 (Telegram Channel Rich Post with 🟢 specs &
 Schedule: 08:00 and 20:00 MSK digests + on-demand /digest and /search.
 Interactive UX: Per-item voting buttons & SQLite taste weight flywheel.
 """
-import sys, os, asyncio, logging, datetime
+import sys, os, asyncio, logging, datetime, signal
 from zoneinfo import ZoneInfo
 if sys.stdout is not None:
     sys.stdout.reconfigure(encoding="utf-8")
+
+running = True
+
+def handle_stop_signal(*_):
+    global running
+    logging.getLogger("news_daemon").info("Shutdown signal received. Stopping daemon gracefully...")
+    running = False
 
 from telethon import TelegramClient, events, connection, Button
 
@@ -299,7 +306,7 @@ async def ingest_sweep(client: TelegramClient = None):
 
 async def background_ingester(client: TelegramClient):
     interval = int(os.getenv("INGEST_INTERVAL", "90"))
-    while True:
+    while running:
         try:
             await ingest_sweep(client)
         except Exception as e:
@@ -434,7 +441,7 @@ def build_settings_view() -> tuple[str, list[list[Button.inline]]]:
 
 async def background_scheduler(client: TelegramClient):
     last_sent_slot = None
-    while True:
+    while running:
         try:
             now_msk = datetime.datetime.now(MSK_TZ)
             hour = now_msk.hour
@@ -962,6 +969,12 @@ def setup_bot_handlers(client: TelegramClient):
         )
 
 async def main():
+    try:
+        signal.signal(signal.SIGINT, handle_stop_signal)
+        signal.signal(signal.SIGTERM, handle_stop_signal)
+    except (ValueError, AttributeError):
+        pass
+
     init_db()
     client = TelegramClient(
         "bot_session",
