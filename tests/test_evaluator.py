@@ -81,5 +81,26 @@ class TestEvaluator(unittest.TestCase):
         self.assertEqual(parsed["signal"], 0.85)
         self.assertIn("test", parsed["topics"])
 
+    def test_is_empty_bump_filtering(self):
+        from curator.evaluator import is_empty_bump, classify_article
+        # Empty bumps should be detected
+        self.assertTrue(is_empty_bump("[SGLang] v0.5.23", "Bump version"))
+        self.assertTrue(is_empty_bump("v1.2.3", ""))
+        self.assertTrue(is_empty_bump("Release b11780", "no functional changes"))
+
+        # Releases with meaningful changes should pass
+        self.assertFalse(is_empty_bump("Ollama v0.40.9-rc0", "Fixed CUDA memory leak and added FlashAttention"))
+        self.assertFalse(is_empty_bump("DeepSeek-V3", "Weights released"))
+
+        # classify_article rejects empty bump with signal 0.0
+        m = classify_article("[SGLang] v0.5.23", source="github", content="Bump version to 0.5.23")
+        self.assertEqual(m["signal"], 0.0)
+        self.assertEqual(m["category"], "other")
+
+        # classify_article accepts release with actual changelog
+        m_good = classify_article("[llama.cpp] b11792", source="github", content="Added CUDA flash attention kernel fix")
+        self.assertEqual(m_good["signal"], 0.95)
+        self.assertEqual(m_good["category"], "tools")
+
 if __name__ == "__main__":
     unittest.main()

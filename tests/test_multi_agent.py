@@ -154,6 +154,24 @@ class TestMultiAgentPipeline(unittest.TestCase):
             self.assertIn("Свежая подборка", res)
             self.assertIn("1️⃣ **[Tool A](https://a.com)**", res)
 
+    def test_is_hollow_post_detection(self):
+        from curator.multi_agent import is_hollow_post
+        # Empty markers should be hollow
+        self.assertTrue(is_hollow_post("⚡️ [Tool](url): release\n\n• Под капотом:\n\n🔥 Итог: ok"))
+        self.assertTrue(is_hollow_post('{"skip": true, "reason": "empty"}'))
+        self.assertTrue(is_hollow_post(""))
+        self.assertTrue(is_hollow_post("Too short"))
+
+        # Real post with substance should pass
+        real_post = (
+            "⚡️ [llama.cpp b11792](https://github.com/ggml-org/llama.cpp): d2t in VRAM\n\n"
+            "Выкатили оптимизацию спекулятивного декодирования для ускорения генерации на GPU.\n\n"
+            "• Под капотом: d2t-тензор удерживается в VRAM без лишних копирований по шине PCIe.\n"
+            "• Фича: ускорение спекулятивного сэмплинга на 15-20% при использовании драфт-моделей.\n\n"
+            "🔥 Итог: обновление рекомендовано всем пользователям CUDA.\n\n"
+            "#AI #DevTools"
+        )
+        self.assertFalse(is_hollow_post(real_post))
 
 if __name__ == "__main__":
     unittest.main()

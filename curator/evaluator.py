@@ -160,7 +160,41 @@ def classify_with_jev(title: str, content: str = "", gateway_url: str = GATEWAY_
         log.debug("[Jev SystemOne] Upstream unavailable (%s), falling back to DeepSeek classifier", e)
         return None
 
-def classify_article(title: str, source: str = "", gateway_url: str = GATEWAY_URL, token: str = GATEWAY_TOKEN) -> dict:
+_BUMP_RE = re.compile(r"\b(v\d+\.\d+(\.\d+)?(-rc\d+)?|b\d{5})\b", re.I)
+_CHANGELOG_HINTS = (
+    "changelog", "изменени", "новый флаг", "добавлен", "исправлен",
+    "fix", "feat", "breaking", "cve-", "vram", "токен/с", "tokens/s",
+    "cuda", "quant", "speed", "perf", "optim", "support", "feature",
+    "speedup", "memory", "kernel", "commit", "merged", "benchmark"
+)
+
+def is_empty_bump(title: str, content: str = "") -> bool:
+    """Detects version bump releases that carry no changelog or technical details."""
+    if not _BUMP_RE.search(title):
+        return False
+    low = (content or "").lower().strip()
+    if not low or len(low) < 25:
+        return True
+    return not any(h in low for h in _CHANGELOG_HINTS)
+
+def classify_article(
+    title: str,
+    source: str = "",
+    content: str = "",
+    gateway_url: str = GATEWAY_URL,
+    token: str = GATEWAY_TOKEN
+) -> dict:
+    # 0. Reject empty version bumps without functional changes
+    if is_empty_bump(title, content):
+        log.info("Filtered empty version bump: '%s'", title[:40])
+        return {
+            "signal": 0.0,
+            "fact": 0.5,
+            "hype": 0.5,
+            "category": "other",
+            "topics": ["empty_bump"]
+        }
+
     # 1. Fast-path: Hugging Face models are inherently high-signal AI models
     if source == "huggingface":
         return {

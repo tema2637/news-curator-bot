@@ -229,7 +229,7 @@ async def ingest_sweep(client: TelegramClient = None):
 
     processed = 0
     for it in new_items:
-        metrics = await asyncio.to_thread(classify_article, it["title"], it.get("source", ""))
+        metrics = await asyncio.to_thread(classify_article, it["title"], it.get("source", ""), it.get("content", ""))
         score, matched = calculate_score(it["title"], metrics, weights, active_topics=active_topics, blacklist=blacklist)
         log.info("Item [%.2f] (%s): %s", score, metrics.get("category", "other"), it["title"][:50])
 

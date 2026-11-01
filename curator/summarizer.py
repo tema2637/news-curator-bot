@@ -120,16 +120,17 @@ def clean_title(title: str) -> str:
     t = t.replace("[", "").replace("]", "").strip()
     return t
 
-def clean_summary_post(raw: str, title: str = "", url: str = "") -> str:
+def clean_summary_post(raw: str, title: str = "", url: str = "", allow_fallback: bool = False) -> str:
     clean_t = clean_title(title)
-    if not raw:
+    if not raw or not raw.strip():
+        if not allow_fallback:
+            return ""
         link_md = f"[{clean_t}]({url})" if url else clean_t
         t_low = clean_t.lower()
 
         if "llama.cpp" in t_low:
             lead = "Выкатили апдейт C/C++ движка для инференса GGUF-моделей на CPU и GPU без раздутых зависимостей."
             details = (
-                "• На пальцах: программа для запуска текстовых нейросетей прямо на домашнем ПК — выжимает максимум скорости без интернета и облачных подписок.\n"
                 "• Под капотом: C/C++ инференс-ядро, встроенный llama-server с эндпоинтом /v1/chat/completions.\n"
                 "• Фича: FlashAttention, спекулятивный сэмплинг, минимальный футпринт в RAM/VRAM.\n"
                 "• Подвох: для полной скорости требует правильных флагов сборки под конкретное железо (CUDA/Metal/Vulkan)."
@@ -138,7 +139,6 @@ def clean_summary_post(raw: str, title: str = "", url: str = "") -> str:
         elif "comfyui" in t_low:
             lead = "Свежий билд нодового движка для сборки пайплайнов Flux, SDXL и диффузионных видеомоделей."
             details = (
-                "• На пальцах: визуальный конструктор картинок и видео — соединяете блоки стрелочками и получаете полный контроль над генерацией.\n"
                 "• Под капотом: графовый пайплайн с выгрузкой весов между RAM и VRAM на лету.\n"
                 "• Фича: полный контроль над каждым шагом диффузии, поддержка кастомных нод.\n"
                 "• Подвох: при нагромождении десятков сторонних нод легко словить конфликт зависимостей."
@@ -147,7 +147,6 @@ def clean_summary_post(raw: str, title: str = "", url: str = "") -> str:
         elif "vllm" in t_low or "sglang" in t_low:
             lead = "Релиз высокопроизводительного сервера инференса для продакшен-нагрузок."
             details = (
-                "• На пальцах: сверхбыстрый движок, позволяющий нейросети отвечать десяткам пользователей одновременно без зависаний памяти.\n"
                 "• Под капотом: PagedAttention для оптимизации фрагментации KV-кэша и мульти-GPU батчинга.\n"
                 "• Фича: квантование FP8/AWQ/GPTQ, стриминг токенов с минимальной задержкой.\n"
                 "• Подвох: прожорлив к VRAM на длинных контекстах без жестких лимитов батча."
@@ -156,7 +155,6 @@ def clean_summary_post(raw: str, title: str = "", url: str = "") -> str:
         else:
             lead = "Свежее обновление инженерного инструмента в экосистеме открытого ИИ."
             details = (
-                "• На пальцах: полезный инструмент для ускорения работы с нейросетями и программами на компьютере.\n"
                 f"• Под капотом: открытый репозиторий с оптимизацией вычислений и готовыми скриптами.\n"
                 f"• Фича: интеграция в рабочие пайплайны и пет-разработку.\n"
                 f"• Подвох: проверяйте совместимость с текущей версией вашего окружения."
@@ -166,10 +164,21 @@ def clean_summary_post(raw: str, title: str = "", url: str = "") -> str:
         return f"⚡️ {link_md}: свежее техническое обновление\n\n{lead}\n\n{details}\n\n{concl}\n\n#AI #DevTools #OpenSource #Tech"
 
     text = raw.strip()
+    if '{"skip": true' in text or '{"skip":true' in text:
+        return ""
+
     if text.startswith("```"):
         lines = text.split("\n")
         if len(lines) >= 3 and lines[-1].startswith("```"):
             text = "\n".join(lines[1:-1]).strip()
+
+    # Strip empty bullet markers without content
+    text = re.sub(
+        r"^\s*[•\-\*]\s*(На пальцах|Под капотом|Фича|Подвох)\s*:\s*\n",
+        "",
+        text,
+        flags=re.MULTILINE | re.IGNORECASE
+    )
 
     # Clean accidental Chinese characters or artifacts
     text = text.replace("他们", "Они").replace("的", "")

@@ -5,7 +5,7 @@ curator/multi_agent.py - 4-agent collaborative refinement pipeline:
 3. Agent 3 (Tech Specialist / Critic 2 & Enhancer): audits Agents 1 & 2, deepens engineering context & benchmarks.
 4. Agent 4 (Lead Editor / Composer): synthesizes all 3 agents' findings into the final Telegram post.
 """
-import logging, time
+import logging, time, re
 from curator.summarizer import http_post_json, extract_message_text, clean_summary_post, clean_title, GATEWAY_URL
 
 log = logging.getLogger("curator.multi_agent")
@@ -121,6 +121,26 @@ def agent3_refine(raw_content: str, a1_output: str, a2_output: str) -> str:
     return call_agent_step("Agent 3 (Refiner)", sys_prompt, user_prompt, max_tokens=1000)
 
 
+_EMPTY_MARKER_RE = re.compile(
+    r"^\s*[•\-\*]\s*(На пальцах|Под капотом|Фича|Подвох)\s*:\s*$",
+    re.MULTILINE | re.IGNORECASE,
+)
+
+def is_hollow_post(text: str) -> bool:
+    """Detects hollow, empty, or placeholder posts."""
+    if not text or not text.strip():
+        return True
+    clean = text.strip()
+    if '{"skip": true' in clean or '{"skip":true' in clean:
+        return True
+    if _EMPTY_MARKER_RE.search(clean):
+        return True
+    lines = [line.strip() for line in clean.splitlines() if line.strip()]
+    if len(lines) <= 2:
+        return True
+    body = "\n".join(lines[1:])
+    return len(body.strip()) < 70
+
 def agent4_compose(
     title: str,
     url: str,
@@ -129,7 +149,7 @@ def agent4_compose(
     a3_output: str,
     lang: str = "ru"
 ) -> str:
-    """Agent 4: Chief editor compiling verified insights into the final Telegram post in Backdoor style."""
+    """Agent 4: Lead editor composing punchy Backdoor-style post without slop."""
     clean_t = clean_title(title)
     lang_inst = "на русском языке" if lang == "ru" else "in English"
 
@@ -141,17 +161,22 @@ def agent4_compose(
         "- Ноль маркетинговой шелухи и штампов («революционный», «меняет правила игры», «настоящий подарок», «открывает горизонты», «в современном мире»).\n"
         "- Разговорный, жесткий тон опытного разработчика без реверансов и без воды.\n"
         "- Только сухие цифры и архитектура: сколько VRAM, какие флаги, какая шина, какие модели.\n\n"
-        "СТРОГИЙ ШАБЛОН «БЭКДОР»:\n"
+        "СТРУКТУРА ПОСТА:\n"
         f"⚡️ [{clean_t}]({url}): краткая суть релиза в одну строку\n\n"
         "Сразу первый абзац без служебного слова «Лид:» (1-2 живых плотных предложения: что выкатили и зачем это нужно).\n\n"
-        "• На пальцах: простое объяснение без единого IT-термина (запрещены слова «API», «инференс», «бенчмарк», «модель», «тензоры», «квантование») на бытовом примере или аналогии — понятно даже тому, кто вообще не разбирается в теме.\n"
-        "• Под капотом: архитектура, стек, память/VRAM, затронутые компоненты (сухо, с цифрами для профи).\n"
-        "• Фича: ключевые параметры, замеры скорости/задержки или практические сценарии.\n"
-        "• Подвох: реальные ограничения, баги, лицензия или о чем умолчали авторы.\n\n"
-        "🔥 Итог: качать/обновляться, если ... Если ... — сразу мимо.\n\n"
+        "УСЛОВНЫЕ РАЗДЕЛЫ (используй ТОЛЬКО те, для которых есть подтвержденные факты из источника):\n"
+        "• Под капотом: архитектура, стек, память/VRAM, затронутые компоненты (сухо, с цифрами для профи). НЕТ ЦИФР — НЕ ПИШИ РАЗДЕЛ.\n"
+        "• Фича: ключевые параметры, замеры скорости/задержки или практические сценарии. НЕТ ФАКТОВ — НЕ ПИШИ РАЗДЕЛ.\n"
+        "• Подвох: реальные технические ограничения, баги, лицензия или узкие места. Не выдумывай и не пиши общие фразы («может не работать»). НЕТ ОГРАНИЧЕНИЙ — НЕ ПИШИ РАЗДЕЛ.\n"
+        "• На пальцах: максимум один раз на пост и ТОЛЬКО если бытовая аналогия РЕАЛЬНО объясняет сложную концепцию. Если релиз очевиден или аналогия натянута — НЕ ПИШИ РАЗДЕЛ.\n\n"
+        "🔥 Итог: качать/обновляться, если ... Иначе — сразу мимо. (Единственное обязательное поле).\n\n"
         "#AI #DevTools #OpenSource #Tech\n\n"
+        "ПРАВИЛО ПУСТОГО РЕЛИЗА:\n"
+        "Если из источника нельзя извлечь ни одной конкретной цифры или факта (чистый бамп версии без чейнджлога, пустой коммит) — ответь СТРОГО: "
+        '{"skip": true, "reason": "empty_release"}.\n\n'
         "ПРАВИЛА:\n"
         "- Ссылка строго вида [{clean_t}]({url}) прямо в первой строке!\n"
+        "- Запрещены пустые маркеры вроде «• Под капотом:» без содержания.\n"
         "- Никаких двойных скобок [[...]] и отписок («подробности по ссылке»)."
     )
 
@@ -190,10 +215,10 @@ def agent4_verify_post(
         "КРИТЕРИИ АУДИТА («БЭКДОР»):\n"
         f"1. Заголовок strictly вида: ⚡️ [{clean_t}]({url}): краткая суть релиза.\n"
         "2. Первый абзац идет сразу после заголовка БЕЗ служебного слова «Лид:» (ровно 1-2 живых плотных предложения).\n"
-        "3. Пункт «• На пальцах:» ОБЯЗАТЕЛЕН. Проверь: в нём НЕ ДОЛЖНО БЫТЬ заумных терминов (слов «API», «инференс», «бенчмарк», «тензоры»). Должно быть понятно любому новичку.\n"
-        "4. Пункты строго с маркером •: • На пальцах: ..., • Под капотом: ..., • Фича: ..., • Подвох: ...\n"
-        "5. Блок итога строго: 🔥 Итог: качать/обновляться, если ... Если ... — сразу мимо.\n"
-        "6. ВЫРЕЗАТЬ ВЕСЬ НЕЙРОСЛОП: безжалостно удали любые рекламные клише («революция», «меняет правила игры», «настоящий подарок»).\n"
+        "3. Блоки «• Под капотом:», «• Фича:», «• Подвох:», «• На пальцах:» ДОЛЖНЫ БЫТЬ ТОЛЬКО ЕСЛИ ОНИ СОДЕРЖАТ РЕАЛЬНУЮ КОНКРЕТИКУ. Пустые маркеры без текста немедленно УДАЛЯЙ.\n"
+        "4. Блок итога строго: 🔥 Итог: качать/обновляться, если ... Иначе — сразу мимо.\n"
+        "5. ВЫРЕЗАТЬ ВЕСЬ НЕЙРОСЛОП: безжалостно удали любые рекламные клише («революция», «меняет правила игры», «настоящий подарок»).\n"
+        "6. Если черновик пустой, содержит {\"skip\": true} или в релизе нет реальных изменений — верни строго: {\"skip\": true, \"reason\": \"empty_release\"}.\n"
         f"7. Никаких двойных скобок [[...]]. Ссылка кликабельна и ведет на {url}.\n\n"
         "Выдай ИДЕАЛЬНЫЙ чистовой пост без вступительных слов и комментариев."
     )
@@ -250,10 +275,14 @@ def run_four_agent_pipeline(title: str, url: str = "", content: str = "", lang: 
             a4_post = a4_verified
 
     if a4_post:
-        return clean_summary_post(a4_post, title=title, url=url)
+        cleaned = clean_summary_post(a4_post, title=title, url=url)
+        if not is_hollow_post(cleaned):
+            return cleaned
+        log.info("4-agent pipeline produced hollow or skipped post for '%s' -> dropped", title[:40])
+        return ""
 
-    log.error("4-agent pipeline failed to compose post; falling back to clean template")
-    return clean_summary_post("", title=title, url=url)
+    log.info("4-agent pipeline found no publishable substance for '%s' -> dropped", title[:40])
+    return ""
 
 
 # ============================================================================

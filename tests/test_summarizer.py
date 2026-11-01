@@ -23,10 +23,14 @@ class TestSummarizer(unittest.TestCase):
         self.assertFalse(cleaned.endswith("```"))
 
     def test_clean_summary_fallback_on_empty(self):
-        cleaned = clean_summary_post("", "New Model", "https://example.com/model")
+        cleaned = clean_summary_post("", "New Model", "https://example.com/model", allow_fallback=True)
         self.assertIn("[New Model](https://example.com/model)", cleaned)
         self.assertIn("• Под капотом:", cleaned)
         self.assertIn("🔥 Итог:", cleaned)
+
+    def test_clean_summary_empty_without_fallback(self):
+        self.assertEqual(clean_summary_post("", "New Model", "https://example.com/model"), "")
+        self.assertEqual(clean_summary_post('{"skip": true}', "New Model"), "")
 
     def test_clean_summary_removes_ai_slop(self):
         raw = (
