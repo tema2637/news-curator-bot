@@ -1,0 +1,12 @@
+.env
+*.session
+*.session-journal
+*.log
+*.err.log
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+__pycache__/
+*.pyc
+.pytest_cache/
