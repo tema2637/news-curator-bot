@@ -11,13 +11,8 @@ def format_single_post(item: dict) -> tuple[str, list[list[dict]]]:
     title = item.get("title", "")
     url = item.get("url", "")
     summary = item.get("summary")
-    if not summary or any(stub in summary.lower() for stub in ("следите за обновлениями", "подробности доступны", "исходный код доступен")):
-        try:
-            from curator.summarizer import summarize_article
-            summary = summarize_article(title, url, item.get("content", ""))
-            item["summary"] = summary
-        except Exception:
-            summary = summary or f"💡 **{title.upper()}**\n\n[{title}]({url}) — подробности релиза по ссылке.\n\n🟢 Подробности доступны в первоисточнике.\n\n🔥 В итоге: следите за обновлениями."
+    if not summary:
+        summary = f"💡 **{title.upper()}**\n\n[{title}]({url}) — подробности релиза по ссылке.\n\n🟢 Подробности доступны в первоисточнике.\n\n🔥 В итоге: следите за обновлениями."
 
     discussion = format_discussion_line(item.get("sources") or "")
     if discussion:

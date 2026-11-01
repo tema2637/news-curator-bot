@@ -61,13 +61,13 @@ TG_API_ID = int(os.getenv("TG_API_ID", "0"))
 TG_API_HASH = os.getenv("TG_API_HASH", "")
 TG_BOT_TOKEN = os.getenv("TG_BOT_TOKEN", "")
 TG_CHAT_ID = int(os.getenv("TG_CHAT_ID", "0"))
+raw_allowed = os.getenv("ALLOWED_USERS", os.getenv("TG_OWNER_ID", str(TG_CHAT_ID)))
+ALLOWED_USERS = {int(x.strip()) for x in raw_allowed.split(",") if x.strip().lstrip("-").isdigit() and int(x.strip()) != 0}
 MTPROTO_PROXY = (
     os.getenv("PROXY_HOST", "192.168.1.1"),
     int(os.getenv("PROXY_PORT", "1443")),
     os.getenv("PROXY_SECRET", "")
 )
-
-ALLOWED_USERS = {TG_CHAT_ID}  # Stealth mode: only owner is authorized
 
 MSK_TZ = ZoneInfo("Europe/Moscow")
 
@@ -164,13 +164,13 @@ async def send_digest_posts(client: TelegramClient, chat_id: int, greeting: str 
 
     digest_format = get_setting("digest_format", "single")
     if digest_format == "multi":
-        posts = build_digest_posts(candidates, greeting=greeting)
+        posts = await asyncio.to_thread(build_digest_posts, candidates, greeting=greeting)
         for text, button_grid in posts:
             buttons = to_telethon_buttons(button_grid) if button_grid else None
             await client.send_message(chat_id, text, buttons=buttons, link_preview=False)
             await asyncio.sleep(0.4)
     else:
-        text, button_grid = build_digest(candidates, greeting=greeting)
+        text, button_grid = await asyncio.to_thread(build_digest, candidates, greeting=greeting)
         buttons = to_telethon_buttons(button_grid) if button_grid else None
         await client.send_message(chat_id, text, buttons=buttons, link_preview=False)
 

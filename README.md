@@ -1,14 +1,14 @@
 # News Curator & Digest Bot
 
-Autonomous AI-powered technical news curator and scheduled digest bot for Telegram.
+Technical news curator and scheduled digest bot for Telegram.
 
-## Why This Architecture?
-- **Zero Heavy AI SDKs**: No LangChain, LlamaIndex, or proprietary OpenAI libraries. Communication with LLMs is built entirely on Python stdlib (`urllib.request`, `asyncio`, `sqlite3`, `xml.etree`).
+## Architecture
+- **Zero Heavy AI SDKs**: No LangChain, LlamaIndex, or proprietary OpenAI libraries. Communication with LLMs is built entirely on Python stdlib (`urllib.request`, `asyncio`, `sqlite3`, `xml.etree`). Heavy I/O runs off the event loop via `asyncio.to_thread`.
 - **Universal LLM Compatibility**: Works out-of-the-box with any OpenAI-compatible API gateway (Ollama, vLLM, OpenRouter, LiteLLM, 9Router).
 - **Two-Tier AI Processing**:
   - **System 1 (High-speed Triage)**: Fast JSON classification and signal scoring to drop noise before invoking heavy models.
-  - **System 2 (Multi-Agent Editorial Pipeline)**: Sequential chain of specialized steps (Researcher -> Fact-Checker -> Refiner -> Editor) to produce concise, high-signal posts.
-- **Continuous Taste Flywheel**: Interactive Telegram inline vote buttons (`👍` / `👎`) dynamically adjust category and topic weights in SQLite WAL storage.
+  - **System 2 (Editorial Pipeline)**: Sequential chain of specialized prompts (Researcher -> Fact-Checker -> Refiner -> Editor) to produce concise, high-signal posts.
+- **Feedback-Driven Scoring**: Interactive Telegram inline vote buttons (`👍` / `👎`) adjust category and topic preference weights stored in SQLite (WAL mode).
 
 ## Ingestion Sources
 - **GitHub**: RSS/Atom release feeds for top open-source projects (llama.cpp, vLLM, ComfyUI, etc.) without API rate limit exhaustion.
@@ -36,6 +36,7 @@ cp .env.example .env
 | `TG_API_ID` | Telegram API ID from my.telegram.org | Required |
 | `TG_API_HASH` | Telegram API Hash | Required |
 | `TG_CHAT_ID` | Target Telegram Chat / Channel ID | Required |
+| `ALLOWED_USERS` | Comma-separated admin Telegram user IDs | Defaults to `TG_CHAT_ID` |
 | `GATEWAY_URL` | OpenAI-compatible base URL | `http://127.0.0.1:20128/v1` |
 | `GATEWAY_TOKEN` | Bearer token for LLM API | Optional |
 | `PROXY_HOST` | MTProto proxy host | Optional |

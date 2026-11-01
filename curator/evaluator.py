@@ -44,9 +44,10 @@ def parse_classification_json(raw: str) -> dict:
                 code_body = code_body[4:]
             text = code_body.strip()
 
-    m = re.search(r"\{.*?\}", text, re.DOTALL)
-    if m:
-        text = m.group(0)
+    start = text.find("{")
+    end = text.rfind("}")
+    if start != -1 and end > start:
+        text = text[start:end + 1]
 
     try:
         data = json.loads(text)
