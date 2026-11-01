@@ -61,5 +61,18 @@ class TestEvaluator(unittest.TestCase):
         score2, _ = calculate_score("Ancient historical story", metrics, {}, active_topics={"free_api"})
         self.assertEqual(score2, 0.0)
 
+    def test_json_with_nested_curly_braces_in_strings(self):
+        raw = 'Here is the result: {"category": "models", "signal": 0.85, "fact": 0.9, "hype": 0.1, "topics": ["use {curly} brackets in {nested} form"]} extra text {another: 1}'
+        parsed = parse_classification_json(raw)
+        self.assertEqual(parsed["category"], "models")
+        self.assertEqual(parsed["signal"], 0.85)
+        self.assertEqual(parsed["topics"], ["use {curly} brackets in {nested} form"])
+
+    def test_json_with_escaped_quotes(self):
+        raw = '```json\n{"category": "tools", "signal": 0.8, "fact": 0.8, "hype": 0.1, "topics": ["test \\"quoted\\" values"]}\n```'
+        parsed = parse_classification_json(raw)
+        self.assertEqual(parsed["category"], "tools")
+        self.assertIn('test "quoted" values', parsed["topics"])
+
 if __name__ == "__main__":
     unittest.main()

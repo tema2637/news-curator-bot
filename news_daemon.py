@@ -57,15 +57,28 @@ stderr_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(mes
 logging.basicConfig(level=logging.INFO, handlers=[file_handler, stderr_handler])
 log = logging.getLogger("news_daemon")
 
-TG_API_ID = int(os.getenv("TG_API_ID", "0"))
+def parse_allowed_users(raw: str | None, fallback: int = 0) -> set[int]:
+    if not raw:
+        return {fallback} if fallback != 0 else set()
+    users = set()
+    for item in raw.split(","):
+        cleaned = item.strip()
+        if cleaned.lstrip("-").isdigit():
+            val = int(cleaned)
+            if val != 0:
+                users.add(val)
+    if not users and fallback != 0:
+        users.add(fallback)
+    return users
+
+TG_API_ID = int(os.getenv("TG_API_ID", "0") or "0")
 TG_API_HASH = os.getenv("TG_API_HASH", "")
 TG_BOT_TOKEN = os.getenv("TG_BOT_TOKEN", "")
-TG_CHAT_ID = int(os.getenv("TG_CHAT_ID", "0"))
-raw_allowed = os.getenv("ALLOWED_USERS", os.getenv("TG_OWNER_ID", str(TG_CHAT_ID)))
-ALLOWED_USERS = {int(x.strip()) for x in raw_allowed.split(",") if x.strip().lstrip("-").isdigit() and int(x.strip()) != 0}
+TG_CHAT_ID = int(os.getenv("TG_CHAT_ID", "0") or "0")
+ALLOWED_USERS = parse_allowed_users(os.getenv("ALLOWED_USERS") or os.getenv("TG_OWNER_ID"), fallback=TG_CHAT_ID)
 MTPROTO_PROXY = (
     os.getenv("PROXY_HOST", "192.168.1.1"),
-    int(os.getenv("PROXY_PORT", "1443")),
+    int(os.getenv("PROXY_PORT", "1443") or "1443"),
     os.getenv("PROXY_SECRET", "")
 )
 
@@ -766,7 +779,7 @@ def setup_bot_handlers(client: TelegramClient):
 
     @client.on(events.CallbackQuery(pattern=rb"^cmd:(digest|stats|settings|recap|topics|channel|post_channel)"))
     async def on_quick_cmd(event):
-        if event.sender_id not in ALLOWED_USERS:
+        if not event.sender_id or event.sender_id not in ALLOWED_USERS:
             await event.answer("Доступ ограничен.", alert=True)
             return
         cmd = event.pattern_match.group(1).decode()
@@ -828,7 +841,7 @@ def setup_bot_handlers(client: TelegramClient):
 
     @client.on(events.CallbackQuery(pattern=rb"^top:toggle:(\w+)"))
     async def on_topic_toggle(event):
-        if event.sender_id not in ALLOWED_USERS:
+        if not event.sender_id or event.sender_id not in ALLOWED_USERS:
             await event.answer("Доступ ограничен.", alert=True)
             return
         top_key = event.pattern_match.group(1).decode()
@@ -850,7 +863,7 @@ def setup_bot_handlers(client: TelegramClient):
 
     @client.on(events.CallbackQuery(pattern=rb"^set:(\w+):(.+)"))
     async def on_settings_click(event):
-        if event.sender_id not in ALLOWED_USERS:
+        if not event.sender_id or event.sender_id not in ALLOWED_USERS:
             await event.answer("Доступ ограничен.", alert=True)
             return
         action = event.pattern_match.group(1).decode()
@@ -887,7 +900,7 @@ def setup_bot_handlers(client: TelegramClient):
 
     @client.on(events.CallbackQuery(pattern=rb"^v:(-?\d+):(.+)"))
     async def on_vote(event):
-        if event.sender_id not in ALLOWED_USERS:
+        if not event.sender_id or event.sender_id not in ALLOWED_USERS:
             await event.answer("Доступ ограничен.", alert=True)
             return
         vote = int(event.pattern_match.group(1).decode())
