@@ -1,0 +1,2 @@
+# Minimal dependencies: LLM communication and parsers use Python stdlib (urllib, sqlite3, xml.etree, asyncio)
+telethon>=1.36.0
