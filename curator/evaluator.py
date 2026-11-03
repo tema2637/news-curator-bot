@@ -178,12 +178,9 @@ def is_empty_bump(title: str, content: str = "", source: str = "") -> bool:
     if not _BUMP_RE.search(title):
         return False
     low = (content or "").lower().strip()
-    if any(p in low for p in _EMPTY_BUMP_PHRASES):
+    if not low or len(low) < 25 or any(p in low for p in _EMPTY_BUMP_PHRASES):
         return True
-    # For github releases, empty body or body without changelog hints is an empty bump
     if source == "github":
-        if not low or len(low) < 25:
-            return True
         return not any(h in low for h in _CHANGELOG_HINTS)
     return False
 
