@@ -22,7 +22,7 @@ def call_agent_step(
     user_prompt: str,
     models: list[str] | None = None,
     max_tokens: int = 1000,
-    timeout: int = 60
+    timeout: int = 90
 ) -> str:
     """Invokes an agent role across fallback models."""
     use_models = models or FAST_MODELS
@@ -72,7 +72,7 @@ def agent1_research(title: str, url: str, content: str) -> str:
         "5. Суть на пальцах: простая жизненная аналогия для человека не из IT (без заумных слов, понятно любому человеку с улицы)."
     )
     user_prompt = f"Заголовок: {title}\nURL: {url}\n\nИсходные данные релиза:\n{content[:2500]}"
-    return call_agent_step("Agent 1 (Researcher)", sys_prompt, user_prompt, max_tokens=900)
+    return call_agent_step("Agent 1 (Researcher)", sys_prompt, user_prompt, max_tokens=500)
 
 
 def agent2_factcheck(raw_content: str, a1_output: str) -> str:
@@ -80,19 +80,16 @@ def agent2_factcheck(raw_content: str, a1_output: str) -> str:
     sys_prompt = (
         "Ты — Агент 2 (Фактчекер и первый технический критик).\n"
         "Твоя задача — критически проверить отчет Агента 1, сопоставив его с исходными сырыми данными новости.\n"
-        "Отвечай связным аналитическим текстом на русском языке, без кода и без блоков diff.\n"
-        "Оцени:\n"
-        "1. ВЫРЕЗАТЬ НЕЙРОСЛОП И ДОМЫСЛЫ: срезай любые рекламные клише («революционный», «меняет правила игры», «настоящий подарок»).\n"
-        "2. Проверь факты: подтверждены ли заявления Агента 1 исходными данными (что истинно, а что галлюцинация).\n"
-        "3. Проверь аналогию «на пальцах»: не искажает ли она реальную суть и действительно ли проста для не-айтишников.\n"
-        "4. Укажи упущенные технические нюансы, ограничения (версии, зависимости, GPU-требования).\n"
+        "Отвечай кратко и емко на русском языке (до 3-4 пунктов), без кода.\n"
+        "1. Проверь факты: подтверждены ли заявления Агента 1 исходными данными.\n"
+        "2. Укажи упущенные технические нюансы, ограничения (версии, зависимости, GPU-требования).\n"
         "Сформулируй четкие исправления и уточнения к фактам."
     )
     user_prompt = (
-        f"Исходные сырые данные:\n{raw_content[:2500]}\n\n"
-        f"Отчет Агента 1 (факты для проверки):\n{a1_output}"
+        f"Исходные сырые данные:\n{raw_content[:1500]}\n\n"
+        f"Отчет Агента 1 (факты для проверки):\n{a1_output[:1500]}"
     )
-    return call_agent_step("Agent 2 (Fact-Checker)", sys_prompt, user_prompt, max_tokens=900)
+    return call_agent_step("Agent 2 (Fact-Checker)", sys_prompt, user_prompt, max_tokens=400)
 
 
 def agent3_refine(raw_content: str, a1_output: str, a2_output: str) -> str:
@@ -100,20 +97,17 @@ def agent3_refine(raw_content: str, a1_output: str, a2_output: str) -> str:
     sys_prompt = (
         "Ты — Агент 3 (Инженер-эксперт и второй технический аудитор).\n"
         "Твоя задача — изучить исходные данные новости, факты Агента 1 и критические замечания Агента 2.\n"
-        "Отвечай связным аналитическим текстом на русском языке, без кода и без блоков diff.\n"
-        "Сделай следующее:\n"
-        "1. Зачисти любые оставшиеся размытые формулировки и штампы — оставь только твердые цифры и факты.\n"
-        "2. Углуби технический контекст: влияние на производительность (VRAM, шина PCIe, скорость токенов/сек, задержка).\n"
-        "3. Отшлифуй объяснение «на пальцах»: сделай его идеальным, чтобы понял человек без малейшего технического бэкграунда, без единого непонятного термина.\n"
-        "4. Опиши сценарии практического применения: кому инструмент реально нужен, а кто может пропустить.\n"
-        "Выдай итоговый согласованный набор проверенных технических фактов и понятную аналогию."
+        "Отвечай кратко и емко на русском языке (до 4 пунктов), без воды и без кода.\n"
+        "1. Оставь только твердые цифры и факты (VRAM, шина PCIe, скорость токенов/сек, задержка).\n"
+        "2. Опиши сценарии практического применения: кому инструмент реально нужен, а кто может пропустить.\n"
+        "Выдай итоговый согласованный набор проверенных технических фактов."
     )
     user_prompt = (
-        f"Исходные данные:\n{raw_content[:2000]}\n\n"
-        f"Агент 1 (первичные факты):\n{a1_output}\n\n"
-        f"Агент 2 (критика и фактчекинг):\n{a2_output}"
+        f"Исходные данные:\n{raw_content[:1500]}\n\n"
+        f"Агент 1 (первичные факты):\n{a1_output[:1200]}\n\n"
+        f"Агент 2 (критика и фактчекинг):\n{a2_output[:1200]}"
     )
-    return call_agent_step("Agent 3 (Refiner)", sys_prompt, user_prompt, max_tokens=1000)
+    return call_agent_step("Agent 3 (Refiner)", sys_prompt, user_prompt, max_tokens=400)
 
 
 _EMPTY_MARKER_RE = re.compile(
@@ -188,8 +182,8 @@ def agent4_compose(
         sys_prompt,
         user_prompt,
         models=COMPOSER_MODELS,
-        max_tokens=1100,
-        timeout=45
+        max_tokens=650,
+        timeout=90
     )
 
 
@@ -230,8 +224,8 @@ def agent4_verify_post(
         sys_prompt,
         user_prompt,
         models=COMPOSER_MODELS,
-        max_tokens=1100,
-        timeout=35
+        max_tokens=650,
+        timeout=90
     )
     return verified or a4_draft
 
@@ -380,7 +374,7 @@ def recap_agent4_verify(
         user_prompt,
         models=COMPOSER_MODELS,
         max_tokens=1200,
-        timeout=35
+        timeout=90
     )
     return verified or a4_draft
 
@@ -551,7 +545,7 @@ def digest_agent4_verify(
         user_prompt,
         models=COMPOSER_MODELS,
         max_tokens=1400,
-        timeout=35
+        timeout=90
     )
     return verified or a4_draft
 

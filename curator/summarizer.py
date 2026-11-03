@@ -261,7 +261,7 @@ def summarize_article(title: str, url: str = "", content: str = "", lang: str = 
         body["model"] = model_name
         for attempt in range(2):
             try:
-                res = http_post_json(f"{GATEWAY_URL}/chat/completions", body, timeout=35)
+                res = http_post_json(f"{GATEWAY_URL}/chat/completions", body, timeout=90)
                 raw_text = extract_message_text(res["choices"][0]["message"].get("content"))
                 if raw_text:
                     return clean_summary_post(raw_text, title=title, url=url)
@@ -324,7 +324,7 @@ def generate_digest_recap(articles: list[dict], lang: str = "ru") -> str:
                 "temperature": 0.2,
                 "stream": False
             }
-            res = http_post_json(f"{GATEWAY_URL}/chat/completions", body, timeout=40)
+            res = http_post_json(f"{GATEWAY_URL}/chat/completions", body, timeout=90)
             text = extract_message_text(res["choices"][0]["message"].get("content"))
             if text:
                 return clean_summary_post(text)
