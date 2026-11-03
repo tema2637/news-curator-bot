@@ -5,23 +5,15 @@ curator/multi_agent.py - 4-agent collaborative refinement pipeline:
 3. Agent 3 (Tech Specialist / Critic 2 & Enhancer): audits Agents 1 & 2, deepens engineering context & benchmarks.
 4. Agent 4 (Lead Editor / Composer): synthesizes all 3 agents' findings into the final Telegram post.
 """
-import logging, time, re
+import logging, time, re, os
 from curator.summarizer import http_post_json, extract_message_text, clean_summary_post, clean_title, GATEWAY_URL
 
 log = logging.getLogger("curator.multi_agent")
 
-FAST_MODELS = [
-    "mistral/mistral-small-latest",
-    "mistral/codestral-latest",
-    "oc/deepseek-v4.1-flash-free",
-    "mistral/mistral-large-4",
-]
+PRIMARY_MODEL = os.getenv("LLM_MODEL", "agnes-3.0-flash")
 
-COMPOSER_MODELS = [
-    "mistral/mistral-small-latest",
-    "mistral/mistral-large-4",
-    "oc/deepseek-v4.1-flash-free",
-]
+FAST_MODELS = [PRIMARY_MODEL]
+COMPOSER_MODELS = [PRIMARY_MODEL]
 
 
 def call_agent_step(
@@ -30,7 +22,7 @@ def call_agent_step(
     user_prompt: str,
     models: list[str] | None = None,
     max_tokens: int = 1000,
-    timeout: int = 35
+    timeout: int = 60
 ) -> str:
     """Invokes an agent role across fallback models."""
     use_models = models or FAST_MODELS
@@ -45,7 +37,7 @@ def call_agent_step(
             "temperature": 0.2,
             "stream": False
         }
-        for attempt in range(2):
+        for attempt in range(3):
             try:
                 t0 = time.time()
                 res = http_post_json(f"{GATEWAY_URL}/chat/completions", body, timeout=timeout)
@@ -57,7 +49,10 @@ def call_agent_step(
                     return text
             except Exception as e:
                 log.warning("%s attempt %d on %s failed: %s", role_name, attempt + 1, model_name, e)
-                time.sleep(1.5)
+                if "429" in str(e):
+                    time.sleep(3.0)
+                else:
+                    time.sleep(1.5)
 
     log.error("%s failed across all models", role_name)
     return ""

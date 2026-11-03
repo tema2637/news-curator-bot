@@ -5,9 +5,10 @@ import os, json, re, logging, time, urllib.request
 
 log = logging.getLogger("curator.evaluator")
 
-GATEWAY_URL = os.getenv("GATEWAY_URL", "http://127.0.0.1:20128/v1")
+GATEWAY_URL = os.getenv("GATEWAY_URL", "https://vyceai.com/v1")
 GATEWAY_TOKEN = os.getenv("GATEWAY_TOKEN", "")
-CLASSIFIER_MODELS = ["mistral/mistral-small-latest", "oc/deepseek-v4.1-flash-free"]
+PRIMARY_MODEL = os.getenv("LLM_MODEL", "agnes-3.0-flash")
+CLASSIFIER_MODELS = [PRIMARY_MODEL]
 
 VALID_CATEGORIES = {
     "models",
@@ -167,15 +168,24 @@ _CHANGELOG_HINTS = (
     "cuda", "quant", "speed", "perf", "optim", "support", "feature",
     "speedup", "memory", "kernel", "commit", "merged", "benchmark"
 )
+_EMPTY_BUMP_PHRASES = (
+    "bump version", "bump to", "no functional changes", "изменений нет",
+    "release version", "version bump", "обновление версии"
+)
 
-def is_empty_bump(title: str, content: str = "") -> bool:
+def is_empty_bump(title: str, content: str = "", source: str = "") -> bool:
     """Detects version bump releases that carry no changelog or technical details."""
     if not _BUMP_RE.search(title):
         return False
     low = (content or "").lower().strip()
-    if not low or len(low) < 25:
+    if any(p in low for p in _EMPTY_BUMP_PHRASES):
         return True
-    return not any(h in low for h in _CHANGELOG_HINTS)
+    # For github releases, empty body or body without changelog hints is an empty bump
+    if source == "github":
+        if not low or len(low) < 25:
+            return True
+        return not any(h in low for h in _CHANGELOG_HINTS)
+    return False
 
 def classify_article(
     title: str,
@@ -185,7 +195,7 @@ def classify_article(
     token: str = GATEWAY_TOKEN
 ) -> dict:
     # 0. Reject empty version bumps without functional changes
-    if is_empty_bump(title, content):
+    if is_empty_bump(title, content, source=source):
         log.info("Filtered empty version bump: '%s'", title[:40])
         return {
             "signal": 0.0,
@@ -263,11 +273,15 @@ def classify_article(
         req = urllib.request.Request(
             f"{gateway_url}/chat/completions",
             data=json.dumps(body).encode("utf-8"),
-            headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"}
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {token}",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+            }
         )
         for attempt in range(2):
             try:
-                with urllib.request.urlopen(req, timeout=20) as resp:
+                with urllib.request.urlopen(req, timeout=35) as resp:
                     raw = resp.read().decode("utf-8", errors="replace")
                     if "data: [DONE]" in raw:
                         raw = raw.split("data: [DONE]")[0].strip()

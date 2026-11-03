@@ -5,14 +5,10 @@ import os, json, re, logging, time, urllib.request
 
 log = logging.getLogger("curator.summarizer")
 
-GATEWAY_URL = os.getenv("GATEWAY_URL", "http://127.0.0.1:20128/v1")
+GATEWAY_URL = os.getenv("GATEWAY_URL", "https://vyceai.com/v1")
 GATEWAY_TOKEN = os.getenv("GATEWAY_TOKEN", "")
-SUMMARIZER_MODELS = [
-    "mistral/mistral-large-4",
-    "mistral/mistral-small-latest",
-    "oc/deepseek-v4.1-flash-free",
-    "mistral/codestral-latest",
-]
+PRIMARY_MODEL = os.getenv("LLM_MODEL", "agnes-3.0-flash")
+SUMMARIZER_MODELS = [PRIMARY_MODEL]
 
 def extract_message_text(content) -> str:
     """Safely extracts text string from either string content or multi-block list content."""
@@ -29,7 +25,7 @@ def extract_message_text(content) -> str:
             return "\n".join(texts).strip()
     return ""
 
-def http_post_json(url: str, payload: dict, timeout: int = 30) -> dict:
+def http_post_json(url: str, payload: dict, timeout: int = 35) -> dict:
     # Ensure stream: False is always explicitly requested for chat completions
     if "/chat/completions" in url and "stream" not in payload:
         payload["stream"] = False
@@ -37,7 +33,11 @@ def http_post_json(url: str, payload: dict, timeout: int = 30) -> dict:
     req = urllib.request.Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json", "Authorization": f"Bearer {GATEWAY_TOKEN}"}
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {GATEWAY_TOKEN}",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+        }
     )
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         raw = resp.read().decode("utf-8", errors="replace")
