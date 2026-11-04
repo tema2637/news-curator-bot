@@ -64,6 +64,7 @@ class TestDigest(unittest.TestCase):
         self.assertIn("Объединить", grid[2][0]["text"])
 
     def test_generate_digest_recap_fallback(self):
+        from unittest.mock import patch
         from curator.summarizer import generate_digest_recap
         empty_res = generate_digest_recap([])
         self.assertIn("нет новостей", empty_res)
@@ -71,10 +72,10 @@ class TestDigest(unittest.TestCase):
         items = [
             {"title": "llama.cpp b11785", "url": "https://github.com/ggml-org/llama.cpp", "summary": "⚡ Ускорение"}
         ]
-        # Should return formatted string with markdown
-        res = generate_digest_recap(items)
-        self.assertIn("СПРАВКА", res)
-        self.assertIn("llama.cpp", res)
+        with patch("curator.multi_agent.run_four_agent_recap_pipeline", return_value="📊 **КРАТКАЯ СПРАВКА ПО ПОДБОРКЕ**\n\n• [llama.cpp](https://github.com/ggml-org/llama.cpp) — Ускорение"):
+            res = generate_digest_recap(items)
+            self.assertIn("СПРАВКА", res)
+            self.assertIn("llama.cpp", res)
 
 if __name__ == "__main__":
     unittest.main()

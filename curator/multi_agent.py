@@ -10,10 +10,10 @@ from curator.summarizer import http_post_json, extract_message_text, clean_summa
 
 log = logging.getLogger("curator.multi_agent")
 
-PRIMARY_MODEL = os.getenv("LLM_MODEL", "agnes-3.0-flash")
+PRIMARY_MODEL = os.getenv("LLM_MODEL", "deepseek-v4.1")
 
-FAST_MODELS = [PRIMARY_MODEL]
-COMPOSER_MODELS = [PRIMARY_MODEL]
+FAST_MODELS = [PRIMARY_MODEL, "claude-sonnet-4-6"]
+COMPOSER_MODELS = [PRIMARY_MODEL, "claude-sonnet-4-6"]
 
 
 def call_agent_step(

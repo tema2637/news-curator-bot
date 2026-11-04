@@ -7,8 +7,8 @@ log = logging.getLogger("curator.evaluator")
 
 GATEWAY_URL = os.getenv("GATEWAY_URL", "https://vyceai.com/v1")
 GATEWAY_TOKEN = os.getenv("GATEWAY_TOKEN", "")
-PRIMARY_MODEL = os.getenv("LLM_MODEL", "agnes-3.0-flash")
-CLASSIFIER_MODELS = [PRIMARY_MODEL]
+PRIMARY_MODEL = os.getenv("LLM_MODEL", "deepseek-v4.1")
+CLASSIFIER_MODELS = [PRIMARY_MODEL, "claude-sonnet-4-6"]
 
 VALID_CATEGORIES = {
     "models",

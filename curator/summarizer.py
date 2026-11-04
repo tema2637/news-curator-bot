@@ -7,8 +7,8 @@ log = logging.getLogger("curator.summarizer")
 
 GATEWAY_URL = os.getenv("GATEWAY_URL", "https://vyceai.com/v1")
 GATEWAY_TOKEN = os.getenv("GATEWAY_TOKEN", "")
-PRIMARY_MODEL = os.getenv("LLM_MODEL", "agnes-3.0-flash")
-SUMMARIZER_MODELS = [PRIMARY_MODEL]
+PRIMARY_MODEL = os.getenv("LLM_MODEL", "deepseek-v4.1")
+SUMMARIZER_MODELS = [PRIMARY_MODEL, "claude-sonnet-4-6"]
 
 def extract_message_text(content) -> str:
     """Safely extracts text string from either string content or multi-block list content."""
@@ -231,21 +231,18 @@ def summarize_article(title: str, url: str = "", content: str = "", lang: str = 
 
     # Fallback to single-turn summarizer if multi-agent encounters an exception
     lang_inst = "на русском языке" if lang == "ru" else "in English"
+    clean_t = clean_title(title)
     sys_prompt = (
-        f"Ты — технический аналитик и автор топового Telegram-канала о нейросетях, ИИ и разработке.\n"
-        f"Твоя задача — дать читателю предельно понятное, живое и глубокое фактологическое объяснение {lang_inst}.\n\n"
-        "ФОРМАТ ПОСТА:\n"
-        "1. Заголовок: цепляющий эмодзи + КРАТКИЙ ЗАГОЛОВОК КАПСОМ\n\n"
-        "2. Вводный абзац (лид): Понятное объяснение сути новости простыми словами с кликабельной ссылкой в markdown [Название](URL) (1-2 емких предложения).\n\n"
-        "3. Технические детали и фичи (2-3 коротких пункта, каждый строго начинается с зеленого кружка 🟢 и отделен пустой строкой):\n"
-        "🟢 <Фича / Характеристика> — понятное объяснение, параметры, бенчмарки, VRAM требования.\n\n"
-        "4. Вывод: начинается строго с «🔥 В итоге: » — конкретный практический вывод.\n\n"
-        "5. Хештеги в конце через пробел: 4-5 тегов.\n\n"
-        "СТРОГО ЗАПРЕЩЕНО: использовать двойные скобки [[...]], писать отписки."
+        f"Ты редактор Telegram-канала. Сделай МИКРО-ПОСТ {lang_inst} СТРОГО до 250-300 символов (3-4 короткие строки).\n"
+        "Формат:\n"
+        f"⚡️ [{clean_t}]({url}) — 1 короткое предложение сути.\n"
+        "• Под капотом: 1 строка (цифры, VRAM, память, стек).\n"
+        "🔥 Итог: 1 строка (кому обновляться / кому мимо).\n"
+        "#AI #Tech"
     )
     user_prompt = f"Headline: {title}\nURL: {url}"
     if content:
-        user_prompt += f"\n\nContent excerpt:\n{content[:2500]}"
+        user_prompt += f"\n\nContent excerpt:\n{content[:1500]}"
 
     body = {
         "model": SUMMARIZER_MODELS[0],
@@ -253,8 +250,8 @@ def summarize_article(title: str, url: str = "", content: str = "", lang: str = 
             {"role": "system", "content": sys_prompt},
             {"role": "user", "content": user_prompt}
         ],
-        "max_tokens": 1000,
-        "temperature": 0.25,
+        "max_tokens": 200,
+        "temperature": 0.2,
         "stream": False
     }
     for model_name in SUMMARIZER_MODELS:
